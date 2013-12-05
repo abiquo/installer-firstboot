@@ -15,7 +15,6 @@ def check_api_url(url):
     if "http://" in url:
       try:
         s = socket.inet_aton(url.split("http://")[1].split("/")[0])
-        s.close()
         return True
       except socket.error:
         pass
@@ -25,7 +24,6 @@ def check_nfs_url(url):
     if ":/" in url:
       try:
         s = socket.inet_aton(url.split(":/")[0])
-        s.close()
         return True
       except socket.error:
         pass
@@ -42,7 +40,6 @@ def detect_public_ip():
     # Warning: Not working in all linuxes.
     ip = commands.getoutput("/sbin/ifconfig").split("\n")[1].split()[1][5:]
     s = socket.inet_aton(ip)
-    s.close()
     return ip
   except socket.error:
     return False
@@ -184,8 +181,7 @@ class mainWindow:
           exit(1)
 
         screen = SnackScreen()
-
-        
+       
         #  Abiquo colors theme
         screen.setColor('ROOT','yellow','black')
         screen.setColor('SHADOW','black','black')
@@ -221,10 +217,7 @@ class mainWindow:
               "SELLISTBOX" : _snack.COLORSET_SELLISTBOX }  """
         
         # Footer
-        if os.path.os.path.exists("/etc/system-release"):
-          screen.pushHelpLine(open("/etc/system-release", "r").readline())
-        else:
-          screen.pushHelpLine("Abiquo - Cloud Computing Platform")
+        screen.pushHelpLine("Abiquo - Cloud Computing Platform")
 
         # NFS Repository window
         DONE = 0
@@ -258,6 +251,7 @@ class mainWindow:
         # 
 
         screen.finish()
+        # Also clean terminal
 
 
 if __name__ == "__main__":
