@@ -18,7 +18,7 @@ case "$1" in
     fi
     # Run abiquo-firstboot tool
     if [ -x /usr/bin/abiquo-firstboot ]; then
-    /usr/bin/abiquo-firstboot
+    /usr/sbin/abiquo-firstboot
     fi
     # Disables itself
     chkconfig abiquo-firstboot off

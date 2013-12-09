@@ -263,7 +263,10 @@ class mainWindow:
 
         # Datacenter ID (Server, V2V, Public Cloud, )
         # RS IP (KVM)
-        # 
+        #  
+
+        # SSL Selection
+        
         screen.popWindow()
         screen.finish()
         # Also clean terminal
