@@ -5,82 +5,37 @@ import sys,os
 import socket
 import signal
 import commands
-import fileinput
+import subprocess
 import ConfigParser
-
+import json
+import codecs
+import shutil
+import logging
+import re
 
 def signal_handler(signal, frame):
-  print 'You pressed Ctrl+C!'
-  sys.exit(0)
-
-def check_api_url(url):
-    if "http://" in url:
-      try:
-        s = socket.inet_aton(url.split("http://")[1].split("/")[0])
-        return True
-      except socket.error:
-        pass
-    return False
-
-def check_nfs_url(url):
-    if ":/" in url:
-      try:
-        s = socket.inet_aton(url.split(":/")[0])
-        return True
-      except socket.error:
-        pass
-    return False
-
-def mount_nfs_url(url):
-    pass
-
-def set_nfs_url(url):
-  fstab_path = "/etc/fstab"
-  if os.path.exists(fstab_path):
-    # Check this before
-    with open(fstab_path,"r+a") as f:
-      for line in f:
-        if '/opt/vm_repository' in line:
-          return
-      f.write(url+'  /opt/vm_repository nfs    defaults        0 0\n')
-
-def set_api_url(url):
-  conf_path = '/var/www/html/ui/config/client-config.json'
-  if os.path.exists(conf_path):
-    f = fileinput.FileInput(conf_path,inplace=1)
-    for line in f:
-        line = line.replace("http://localhost/api",url)
-        print line.rstrip()
-    f.close()
-
-def set_dc_id(dcid):
-  config = ConfigParser.ConfigParser()
-  conf_path = '/opt/abiquo/config/abiquo.properties'
-  if os.path.exists(conf_path):
-    config.readfp(open(conf_path))
-    config.set('remote-services', 'abiquo.datacenter.id', dcid)
-    config.write(open(conf_path,'wb'))
-
-def set_https():
-    passres
+    logging.info('You pressed Ctrl+C!')
+    sys.exit(0)
 
 def detect_public_ip():
-  try:
-    # Warning: Not working in all linuxes.
-    ip = commands.getoutput("/sbin/ifconfig").split("\n")[1].split()[1][5:]
-    s = socket.inet_aton(ip)
-    return ip
-  except socket.error:
-    return False
-
+    try:
+        # Warning: Not working in all linuxes.
+        ip = commands.getoutput("/sbin/ifconfig").split("\n")[1].split()[1][5:]
+        s = socket.inet_aton(ip)
+        return ip
+    except socket.error:
+        return False
 
 class NfsWindow:
     def __init__(self,screen):
+        self.fstab_path = "/etc/fstab"
+        self.mtab_path = "/etc/mtab"
+        self.repository_path = "/opt/vm_repository"
         self.defaulturl = "<nfs-ip>:/opt/vm_repository"
         self.screen = screen
         self.label = Label('NFS repository:')
         self.entry = Entry(33,self.defaulturl)
-        self.text = TextboxReflowed(50,"Some helper text.\n Enter your NFS repository URL.\n")
+        self.text = TextboxReflowed(50,"Enter your NFS repository URL.\n")
         self.topgrid = GridForm(self.screen, "NFS Repository", 1, 3)
         self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
         self.grid = Grid(2, 1)
@@ -91,26 +46,71 @@ class NfsWindow:
         self.topgrid.add (self.bb, 0, 2, growx = 1)
 
     def run(self):
+        # Exit if a vm_repository exist in mtab
+        if self.check_mount():
+            return -1
         self.topgrid.setCurrent(self.entry)
         result = self.topgrid.run()
         rc = self.bb.buttonPressed(result)
         if rc == "cancel":
             return -1
-        if not check_nfs_url(self.entry.value()):
+        if not self.check_nfs_url(self.entry.value()):
+            self.screen.popWindow()
             self.defaulturl = self.entry.value()
             ButtonChoiceWindow(self.screen,"URL incorrect","Please enter a URL with the form:\n <ip>:<mountpoint>",buttons = ["OK"], width = 50)
+        elif not self.mount_nfs(self.entry.value()):
+            self.screen.popWindow()
+            self.defaulturl = self.entry.value()
+            ButtonChoiceWindow(self.screen,"Can't mount","Mountpoint not valid or access denied.",buttons = ["OK"], width = 50)
         else:
             self.defaulturl = self.entry.value()
-            set_nfs_url(self.defaulturl)
+            self.set_nfs_url(self.defaulturl)
             return 0
+
+    def set_nfs_url(self,url):
+        if os.path.exists(self.fstab_path):
+            with open(self.fstab_path,"r+a") as f:
+                for line in f:
+                    if self.repository_path in line:
+                        return False
+                f.write(url+'  '+self.repository_path+' nfs    defaults        0 0\n')
+
+    def check_mount(self):
+        if os.path.exists(self.mtab_path):
+            with open(self.mtab_path,"rt") as f:
+                for line in f:
+                    if self.repository_path in line:
+                        return True
+        return False
+
+    def mount_nfs(self,url):
+        try:
+            # Mount with 4 seconds of timeout, redirecting output to null
+            p = subprocess.call('timeout 4 mount '+url+' '+self.repository_path, shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
+            if p != 0:
+                return False
+        except Exception:
+            logging.error('Cannot mount '+url+' repository')
+            return False
+        return True
+
+    def check_nfs_url(self,url):
+        if ":/" in url:
+            try:
+                s = socket.inet_aton(url.split(":/")[0])
+                return True
+            except socket.error:
+                pass
+        return False
 
 class ApiWindow:
     def __init__(self,screen):
+        self.conf_path = '/var/www/html/ui/config/client-config.json'
         ip = detect_public_ip()
         if ip:
-          self.defaulturl = 'http://'+ip+'/api'
+            self.defaulturl = 'http://'+ip+'/api'
         else:
-          self.defaulturl = "http://<endpoint-ip>/api"
+            self.defaulturl = "http://<endpoint-ip>/api"
         self.screen = screen
         self.label = Label('API endpoint:')
         self.entry = Entry(33,self.defaulturl)
@@ -130,13 +130,40 @@ class ApiWindow:
         rc = self.bb.buttonPressed(result)
         if rc == "cancel":
             return -1
-        if not check_api_url(self.entry.value()):
-            ButtonChoiceWindow(self.screen,"URL incorrect","Please enter a URL with the form:\n http://<endpoint-ip>/api",buttons = ["OK"], width = 50)
+        if not self.check_api_url(self.entry.value()):
             self.screen.popWindow()
+            ButtonChoiceWindow(self.screen,"URL incorrect","Please enter a URL with the form:\n http://<endpoint-ip>/api",buttons = ["OK"], width = 50)
         else:
             self.defaulturl = self.entry.value()
-            set_api_url(self.entry.value())
+            self.set_api_url(self.entry.value())
             return 0
+
+    def set_api_url(self,url):
+        if os.path.exists(self.conf_path):
+            try:
+                with codecs.open(self.conf_path,'r','utf-8') as f:
+                    data = json.load(f)
+                    data['config.endpoint'] = url
+                    dump = json.dumps(data,indent=4,ensure_ascii=False)
+                    with open(self.conf_path,'w') as out:
+                        print >> out, dump.encode('utf-8')
+            except Exception:
+                return False
+
+    def check_api_url(self, url):
+        if "http://" in url:
+            try:
+                s = socket.inet_aton(url.split("http://")[1].split("/")[0])
+                return True
+            except socket.error:
+                pass
+        elif "https://" in url:
+            try:
+                s = socket.inet_aton(url.split("https://")[1].split("/")[0])
+                return True
+            except socket.error:
+                pass
+        return False
 
 class DCWindow:
     def __init__(self,screen):
@@ -162,80 +189,147 @@ class DCWindow:
             return -1
         else:
             self.defaultdc = self.entry.value()
-            set_dc_id(self.entry.value())
+            self.set_dc_id(self.entry.value())
             return 0
+
+    def set_dc_id(self, dcid):
+        config = ConfigParser.ConfigParser()
+        conf_path = '/opt/abiquo/config/abiquo.properties'
+        if os.path.exists(conf_path):
+            try:
+                config.readfp(open(conf_path))
+                config.set('remote-services', 'abiquo.datacenter.id', dcid)
+                config.write(open(conf_path,'wa'))
+            except Exception:
+                logging.error('Cannot set datacenter id')
+
+class RSWindow:
+    def __init__(self,screen):
+        self.ip = "<rs-ip>"
+        self.screen = screen
+        self.label = Label('Remote Services IP:')
+        self.entry = Entry(33,self.defaultdc)
+        self.text = TextboxReflowed(50,"Enter IP address of remote services (redis host).\n")
+        self.topgrid = GridForm(self.screen, "Remote services IP:", 1, 3)
+        self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
+        self.grid = Grid(2, 1)
+        self.grid.setField (self.label, 0, 0, (0, 0, 1, 0), anchorLeft = 1)
+        self.grid.setField (self.entry, 1, 0)
+        self.topgrid.add (self.grid, 0, 1, (0, 0, 0, 1))
+        self.bb = ButtonBar (self.screen, ["OK","Cancel"],compact=1)
+        self.topgrid.add (self.bb, 0, 2, growx = 1)
+
+    def run(self):
+        self.topgrid.setCurrent(self.entry)
+        result = self.topgrid.run()
+        rc = self.bb.buttonPressed(result)
+        try:
+            s = socket.inet_aton(self.ip)
+        except socket.error:
+            return -1
+            ButtonChoiceWindow(self.screen,"IP error","IP address not valid.",buttons = ["OK"], width = 50)
+        if rc == "cancel":
+            return -1
+        else:
+            self.ip = self.entry.value()
+            self.set_rs_ip()
+            return 0
+
+    def set_rs_ip(self):
+        config = ConfigParser.ConfigParser()
+        conf_path = '/etc/abiquo-aim.ini'
+        if os.path.exists(conf_path):
+            try:
+                config.readfp(open(conf_path))
+                config.set('monitor', 'redisHost', ip)
+                config.write(open(conf_path,'wa'))
+            except Exception:
+                logging.error('Cannot set RS ip')
 
 class HTTPSWindow:
     def __init__(self,screen):
         self.screen = screen
-        self.bc = ButtonChoiceWindow(self.screen,"HTTPS ","Do you want to enable secure SSL front-end?",buttons = ["No","Yes"], width = 50)
+        self.text = TextboxReflowed(50,"Do you want to enable secure SSL front-end?\n")
+        self.grid = GridForm(self.screen, "Enable HTTPS", 1, 2)
+        self.bb = ButtonBar(self.screen, ["No","Yes"],compact=1)
+        self.grid.add(self.text,0,0,(0, 0, 0, 1))
+        self.grid.add(self.bb,0,1,growx = 1)       
+        self.abiquo_conf = '/etc/httpd/conf.d/abiquo.conf'
+        self.ssl_conf = '/etc/httpd/conf.d/ssl.conf'
+        self.ssl_conf_example = '/usr/share/doc/abiquo-ui/ssl.conf'
+        self.abiquo_ssl_conf = '/etc/httpd/conf.d/abiquo_ssl.conf'
+        self.abiquo_ssl_conf_example = '/usr/share/doc/abiquo-ui/abiquo_ssl.conf'
+        self.abiquo_generate_certs = '/usr/share/doc/abiquo-ui/create_certs.sh'
+        self.tomcat_server_conf = '/opt/abiquo/tomcat/conf/server.xml'
+        self.tomcat_server_ssl_conf_example = '/usr/share/doc/abiquo-core/examples/tomcat/server_ssl.xml'
+        self.ui_conf_path = '/var/www/html/ui/config/client-config.json'
 
     def run(self):
-        self.bc.setCurrent(self.entry)
-        result = self.bc.run()
+        result = self.grid.run()
         rc = self.bb.buttonPressed(result)
-        if rc == "No":
-            return 
+        if rc == "no":
+            return 0
         else:
-            set_https()
-            # Generate certs and set HTTPS
+            # Generate certs and set HTTPS in apache
+            self.set_https()
             return 0
 
-# Password is set in anaconda, not needed at firstboot.
-class AdminPasswordWindow:
-    def __init__(self,screen):
-        self.defaultpw = "xabiquo"
-        self.screen = screen
-        self.passlabel1 = Label('Enter Password:')
-        self.passlabel2 = Label('Repeat Password:')
-        self.passfield = Entry(15,self.defaultpw, password = 1)
-        self.passconfirm = Entry(15,self.defaultpw, password = 1)
-        self.text = TextboxReflowed(50,"Some helper text.\n Enter your abiquo cloud admin password.\n Default: xabiquo")
-        self.topgrid = GridForm(self.screen, "Enter Admin password", 1, 3)
-        self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
-        self.passgrid = Grid(2, 2)
-        self.passgrid.setField (self.passlabel1, 0, 0, (0, 0, 1, 0), anchorLeft = 1)
-        self.passgrid.setField (self.passlabel2, 0, 1, (0, 0, 1, 0), anchorLeft = 1)
-        self.passgrid.setField (self.passfield, 1, 0)
-        self.passgrid.setField (self.passconfirm, 1, 1)
-        self.topgrid.add (self.passgrid, 0, 1, (0, 0, 0, 1))
-        self.bb = ButtonBar (self.screen, ["OK","Cancel"], compact=1)
-        self.topgrid.add (self.bb, 0, 2, growx = 1)
-
-    def run(self):
-        self.topgrid.setCurrent(self.passfield)
-        result = self.topgrid.run()
-        rc = self.bb.buttonPressed(result)
-        if rc == "cancel":
-            return -1
-        if len(self.passfield.value ()) < 6:
-            ButtonChoiceWindow(self.screen,"Password Length","The root password must be at least 6 characters long.",buttons = ["OK"], width = 50)
-        elif self.passfield.value () != self.passconfirm.value():
-                ButtonChoiceWindow(self.screen, "Password Mismatch","The passwords you entered were different. Please try again.", buttons = ["OK"], width = 50)
+    def set_https(self):
+        # save backups and copy configuration from examples.
+        if os.path.exists(self.abiquo_conf):
+            shutil.move(self.abiquo_conf,self.abiquo_conf+'.backup')
+        if os.path.exists(self.tomcat_server_conf):
+            shutil.move(self.tomcat_server_conf,self.tomcat_server_conf+'.backup')
+        if os.path.exists(self.abiquo_ssl_conf_example):
+            shutil.copy2(self.abiquo_ssl_conf_example,self.abiquo_ssl_conf)
         else:
-            self.defaultpw = self.passfield.value()
-            # Replace password in schema (TODO, not needed in postinstall)
-            return 0
+            logging.warning("abiquo_ssl.conf missing")
+        if os.path.exists(self.tomcat_server_ssl_conf_example):
+            shutil.copy2(self.tomcat_server_ssl_conf_example,self.tomcat_server_conf)
+        else:
+            logging.warning("server.xml missing")
+        if os.path.exists(self.ssl_conf_example):
+            shutil.copy2(self.ssl_conf_example,self.ssl_conf)
+        else:
+            logging.warning("abiquo.conf missing")
+        try:
+            # call script and redirect output to null
+            p = subprocess.call(self.abiquo_generate_certs, shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
+        except Exception:
+            logging.error("Cannot generate SSL certs")
+        # Change client json http -> https
+        if os.path.exists(self.ui_conf_path):
+            shutil.copy2(self.ui_conf_path,self.ui_conf_path+'.backup')
+            try:
+                with open(self.ui_conf_path, "rt") as conf:
+                    lines = conf.readlines()
+                with open(self.ui_conf_path, "wb") as out:
+                    for line in lines:
+                        out.write(re.sub(r'http:','https:',line))
+            except Exception:
+                logging.warning("Failed setting https in "+self.ui_conf_path+" :\n"+str(err))
+        else:
+            logging.warning("UI config not found")
+
 
 class mainWindow:
     def __init__(self):
-
+        logging.basicConfig(filename='/var/log/abiquo-firstboot.log',level=logging.DEBUG,format='%(asctime)s - %(levelname)s: %(message)s')
         # fetch profiles from /etc/abiquo-installer
         profiles = ""
-        if os.path.os.path.exists("/etc/abiquo-installer"):
-          try:
-            profiles = eval(open("/etc/abiquo-installer", "r").readline().split(": ")[1])
-          except:
-            print "Error: Cannot read profiles."
-            exit(1)
+        if os.path.exists("/etc/abiquo-installer"):
+            try:
+                profiles = eval(open("/etc/abiquo-installer", "r").readline().split(": ")[1])
+            except:
+                logging.error("Cannot read profiles.")
+                exit(1)
         else:
-          screen.finish()
-          print "Error: No abiquo profiles detected."
-          exit(1)
+            screen.finish()
+            logging.error("No abiquo profiles detected.")
+            exit(1)
 
         screen = SnackScreen()
-        # Attempt to handle signal for Control+C
-        signal.signal(signal.SIGINT, signal_handler)       
+
 
         #  Abiquo colors theme
         screen.setColor('ROOT','yellow','black')
@@ -272,64 +366,85 @@ class mainWindow:
               "COMPACTBUTTON" : _snack.COLORSET_COMPACTBUTTON,
               "ACTSELLISTBOX" : _snack.COLORSET_ACTSELLISTBOX,
               "SELLISTBOX" : _snack.COLORSET_SELLISTBOX }  """
-        
+
 
         # Title
         if os.path.exists("/etc/system-release"):
-          release = open("/etc/system-release", "r").readline()
-          screen.drawRootText(0, 0, release)
+            release = open("/etc/system-release", "r").readline()
+            screen.drawRootText(0, 0, release)
 
         # NFS Repository window
         DONE = 0
         if ('abiquo-monolithic' or 'abiquo-kvm' or 'abiquo-remote-services' in profiles) \
             and not ('abiquo-nfs-repository' in profiles):
-          while not DONE:
-            self.win = NfsWindow(screen)
-            rc = self.win.run()
-            if rc == -1:
-              screen.popWindow()
-              DONE = 1
-            elif rc == 0:
-              screen.popWindow()
-              DONE = 1
-            
-        # API endpoint 
+            while not DONE:
+                self.win = NfsWindow(screen)
+                rc = self.win.run()
+                if rc == -1:
+                    screen.popWindow()
+                    DONE = 1
+                elif rc == 0:
+                    screen.popWindow()
+                    DONE = 1
         DONE = 0
-        if ('abiquo-ui-standalone' or 'abiquo-monolithic' or 'abiquo-server' in profiles):
-          # Loop until NFS steps done.
-          while not DONE:
-            self.win = ApiWindow(screen)
-            rc = self.win.run()
-            if rc == -1:
-              screen.popWindow()
-              DONE = 1
-            elif rc == 0:
-              screen.popWindow()
-              DONE = 1
 
         # Datacenter ID (Server, V2V, Public Cloud, )
-        DONE = 0
         if ('abiquo-v2v' or 'abiquo-server' or 'abiquo-remote-services' or 'abiquo-public-services' in profiles):
-          # Loop until NFS steps done.
-          while not DONE:
-            self.win = DCWindow(screen)
-            rc = self.win.run()
-            if rc == -1:
-              screen.popWindow()
-              DONE = 1
-            elif rc == 0:
-              screen.popWindow()
-              DONE = 1
-     
+            while not DONE:
+                self.win = DCWindow(screen)
+                rc = self.win.run()
+                if rc == -1:
+                    screen.popWindow()
+                    DONE = 1
+                elif rc == 0:
+                    screen.popWindow()
+                    DONE = 1
+        DONE = 0
+
+        # API endpoint and SSL
+        if ('abiquo-ui-standalone' or 'abiquo-monolithic' or 'abiquo-server' in profiles):
+            # Loop until NFS steps done.
+            while not DONE:
+                self.win = ApiWindow(screen)
+                rc = self.win.run()
+                if rc == -1:
+                    screen.popWindow()
+                    DONE = 1
+                elif rc == 0:
+                    screen.popWindow()
+                    DONE = 1
+            DONE = 0
+            while not DONE:
+                self.win = HTTPSWindow(screen)
+                rc = self.win.run()
+                if rc == -1:
+                    screen.popWindow()
+                    DONE = 1
+                elif rc == 0:
+                    screen.popWindow()
+                    DONE = 1
+        DONE = 0
+
         # RS IP (KVM)
-        # SSL Selection
-        # DHCP relay (?)
-        # NFS + Monolithic -> abiquo.appliancemanager.checkMountedRepository = false
+        if ('abiquo-kvm' in profiles):
+            while not DONE:
+                self.win = RSWindow(screen)
+                rc = self.win.run()
+                if rc == -1:
+                    screen.popWindow()
+                    DONE = 1
+                elif rc == 0:
+                    screen.popWindow()
+                    DONE = 1
+        DONE = 0
+
         screen.popWindow()
         screen.finish()
-        # Also clean terminal
-
 
 if __name__ == "__main__":
-
-    ret = mainWindow()
+    # Attempt to handle signal for Control+C
+    try:
+        signal.signal(signal.SIGINT, signal_handler)   
+        ret = mainWindow()
+    except KeyboardInterrupt:
+        sys.exit()
