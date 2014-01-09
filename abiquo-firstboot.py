@@ -28,6 +28,7 @@ def detect_public_ip():
 
 class NfsWindow:
     def __init__(self,screen):
+        self.conf_path = "/opt/abiquo/config/abiquo.properties"
         self.fstab_path = "/etc/fstab"
         self.mtab_path = "/etc/mtab"
         self.repository_path = "/opt/vm_repository"
@@ -68,12 +69,22 @@ class NfsWindow:
             return 0
 
     def set_nfs_url(self,url):
+        config = ConfigParser.ConfigParser()
+        config.optionxform = str
         if os.path.exists(self.fstab_path):
             with open(self.fstab_path,"r+a") as f:
                 for line in f:
                     if self.repository_path in line:
                         return False
                 f.write(url+'  '+self.repository_path+' nfs    defaults        0 0\n')
+        if os.path.exists(self.conf_path):
+            try:
+                config.readfp(open(self.conf_path))
+                config.set('remote-services', 'abiquo.appliancemanager.repositoryLocation', url)
+                config.write(open(self.conf_path,'wa'))
+            except Exception:
+                logging.error('Cannot set repository path.')
+
 
     def check_mount(self):
         if os.path.exists(self.mtab_path):
@@ -194,6 +205,7 @@ class DCWindow:
 
     def set_dc_id(self, dcid):
         config = ConfigParser.ConfigParser()
+        config.optionxform = str
         conf_path = '/opt/abiquo/config/abiquo.properties'
         if os.path.exists(conf_path):
             try:
@@ -203,12 +215,13 @@ class DCWindow:
             except Exception:
                 logging.error('Cannot set datacenter id')
 
+# Not needed in new KVM
 class RSWindow:
     def __init__(self,screen):
-        self.ip = "<rs-ip>"
+        self.defaultrs = "<rs-ip>"
         self.screen = screen
         self.label = Label('Remote Services IP:')
-        self.entry = Entry(33,self.defaultdc)
+        self.entry = Entry(33,self.defaultrs)
         self.text = TextboxReflowed(50,"Enter IP address of remote services (redis host).\n")
         self.topgrid = GridForm(self.screen, "Remote services IP:", 1, 3)
         self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
@@ -231,12 +244,13 @@ class RSWindow:
         if rc == "cancel":
             return -1
         else:
-            self.ip = self.entry.value()
+            self.defaultrs = self.entry.value()
             self.set_rs_ip()
             return 0
 
     def set_rs_ip(self):
         config = ConfigParser.ConfigParser()
+        config.optionxform = str
         conf_path = '/etc/abiquo-aim.ini'
         if os.path.exists(conf_path):
             try:
@@ -315,7 +329,7 @@ class HTTPSWindow:
 class mainWindow:
     def __init__(self):
         logging.basicConfig(filename='/var/log/abiquo-firstboot.log',level=logging.DEBUG,format='%(asctime)s - %(levelname)s: %(message)s')
-        # fetch profiles from /etc/abiquo-installer
+        # profiles from /etc/abiquo-installer
         profiles = ""
         if os.path.exists("/etc/abiquo-installer"):
             try:
@@ -375,8 +389,8 @@ class mainWindow:
 
         # NFS Repository window
         DONE = 0
-        if ('abiquo-monolithic' or 'abiquo-kvm' or 'abiquo-remote-services' in profiles) \
-            and not ('abiquo-nfs-repository' in profiles):
+        if any(p in profiles for p in ['abiquo-monolithic','abiquo-kvm','abiquo-remote-services']) \
+            and not 'abiquo-nfs-repository' in profiles:
             while not DONE:
                 self.win = NfsWindow(screen)
                 rc = self.win.run()
@@ -389,7 +403,7 @@ class mainWindow:
         DONE = 0
 
         # Datacenter ID (Server, V2V, Public Cloud, )
-        if ('abiquo-v2v' or 'abiquo-server' or 'abiquo-remote-services' or 'abiquo-public-services' in profiles):
+        if any(p in profiles for p in ['abiquo-v2v','abiquo-server','abiquo-remote-services','abiquo-public-services']):
             while not DONE:
                 self.win = DCWindow(screen)
                 rc = self.win.run()
@@ -402,7 +416,7 @@ class mainWindow:
         DONE = 0
 
         # API endpoint and SSL
-        if ('abiquo-ui-standalone' or 'abiquo-monolithic' or 'abiquo-server' in profiles):
+        if any(p in profiles for p in ['abiquo-ui-standalone','abiquo-monolithic','abiquo-server']):
             # Loop until NFS steps done.
             while not DONE:
                 self.win = ApiWindow(screen)
@@ -416,19 +430,6 @@ class mainWindow:
             DONE = 0
             while not DONE:
                 self.win = HTTPSWindow(screen)
-                rc = self.win.run()
-                if rc == -1:
-                    screen.popWindow()
-                    DONE = 1
-                elif rc == 0:
-                    screen.popWindow()
-                    DONE = 1
-        DONE = 0
-
-        # RS IP (KVM)
-        if ('abiquo-kvm' in profiles):
-            while not DONE:
-                self.win = RSWindow(screen)
                 rc = self.win.run()
                 if rc == -1:
                     screen.popWindow()
