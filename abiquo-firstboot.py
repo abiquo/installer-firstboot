@@ -47,7 +47,7 @@ class NfsWindow:
         self.topgrid.add (self.bb, 0, 2, growx = 1)
 
     def run(self):
-        # Exit if a vm_repository exist in mtab
+        # Exit if vm_repository exists in mtab
         if self.check_mount():
             return -1
         self.topgrid.setCurrent(self.entry)
@@ -215,15 +215,14 @@ class DCWindow:
             except Exception:
                 logging.error('Cannot set datacenter id')
 
-# Not needed in new KVM
-class RSWindow:
+class ServerWindow:
     def __init__(self,screen):
-        self.defaultrs = "<rs-ip>"
+        self.ip = "<server-ip>"
         self.screen = screen
-        self.label = Label('Remote Services IP:')
-        self.entry = Entry(33,self.defaultrs)
-        self.text = TextboxReflowed(50,"Enter IP address of remote services (redis host).\n")
-        self.topgrid = GridForm(self.screen, "Remote services IP:", 1, 3)
+        self.label = Label('Abiquo Server IP')
+        self.entry = Entry(33,self.ip)
+        self.text = TextboxReflowed(50,"Enter IP address of Abiquo server:\n")
+        self.topgrid = GridForm(self.screen, "Server IP:", 1, 3)
         self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
         self.grid = Grid(2, 1)
         self.grid.setField (self.label, 0, 0, (0, 0, 1, 0), anchorLeft = 1)
@@ -231,34 +230,41 @@ class RSWindow:
         self.topgrid.add (self.grid, 0, 1, (0, 0, 0, 1))
         self.bb = ButtonBar (self.screen, ["OK","Cancel"],compact=1)
         self.topgrid.add (self.bb, 0, 2, growx = 1)
-
     def run(self):
         self.topgrid.setCurrent(self.entry)
         result = self.topgrid.run()
         rc = self.bb.buttonPressed(result)
-        try:
-            s = socket.inet_aton(self.ip)
-        except socket.error:
-            return -1
-            ButtonChoiceWindow(self.screen,"IP error","IP address not valid.",buttons = ["OK"], width = 50)
         if rc == "cancel":
             return -1
+        elif not self.check_ip(self.entry.value()):
+            self.screen.popWindow()
+            self.ip = self.entry.value()
+            ButtonChoiceWindow(self.screen,"IP error","IP address not valid.",buttons = ["OK"], width = 50)
+
         else:
-            self.defaultrs = self.entry.value()
-            self.set_rs_ip()
+            self.ip = self.entry.value()
+            self.set_server_ip()
             return 0
 
-    def set_rs_ip(self):
+    def set_server_ip(self):
         config = ConfigParser.ConfigParser()
         config.optionxform = str
-        conf_path = '/etc/abiquo-aim.ini'
+        conf_path = '/opt/abiquo/config/abiquo.properties'
         if os.path.exists(conf_path):
             try:
                 config.readfp(open(conf_path))
-                config.set('monitor', 'redisHost', ip)
+                config.set('remote-services', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
                 config.write(open(conf_path,'wa'))
             except Exception:
-                logging.error('Cannot set RS ip')
+                logging.error('Cannot set Server ip')
+
+    def check_ip(self,ip):
+        try:
+            s = socket.inet_aton(ip)
+            return True
+        except socket.error:
+            pass
+        return False
 
 class HTTPSWindow:
     def __init__(self,screen):
@@ -415,9 +421,21 @@ class mainWindow:
                     DONE = 1
         DONE = 0
 
+        # Server IP for AM check
+        if ('abiquo-distributed' in profiles) and ('abiquo-remote-services' in profiles):
+            while not DONE:
+                self.win = ServerWindow(screen)
+                rc = self.win.run()
+                if rc == -1:
+                    screen.popWindow()
+                    DONE = 1
+                elif rc == 0:
+                    screen.popWindow()
+                    DONE = 1
+        DONE = 0
+
         # API endpoint and SSL
         if any(p in profiles for p in ['abiquo-ui-standalone','abiquo-monolithic','abiquo-server']):
-            # Loop until NFS steps done.
             while not DONE:
                 self.win = ApiWindow(screen)
                 rc = self.win.run()
