@@ -115,11 +115,12 @@ class NfsWindow:
         return False
 
 class ApiWindow:
-    def __init__(self,screen):
+    def __init__(self,screen,profiles):
         self.conf_path = '/var/www/html/ui/config/client-config.json'
         ip = detect_public_ip()
-        if ip:
+        if ip and not 'abiquo-ui' in profiles:
             self.defaulturl = 'http://'+ip+'/api'
+            # Dont't detect IP if it's a Standalone Client.
         else:
             self.defaulturl = "http://<endpoint-ip>/api"
         self.screen = screen
@@ -254,6 +255,7 @@ class ServerWindow:
             try:
                 config.readfp(open(conf_path))
                 config.set('remote-services', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
+                config.set('remote-services', 'abiquo.rabbitmq.host', self.ip)
                 config.write(open(conf_path,'wa'))
             except Exception:
                 logging.error('Cannot set Server ip')
@@ -395,7 +397,7 @@ class mainWindow:
 
         # NFS Repository window
         DONE = 0
-        if any(p in profiles for p in ['abiquo-monolithic','abiquo-kvm','abiquo-remote-services']) \
+        if any(p in profiles for p in ['abiquo-monolithic','abiquo-kvm','abiquo-remote-services','abiquo-v2v']) \
             and not 'abiquo-nfs-repository' in profiles:
             while not DONE:
                 self.win = NfsWindow(screen)
@@ -409,7 +411,7 @@ class mainWindow:
         DONE = 0
 
         # Datacenter ID (Server, V2V, Public Cloud, )
-        if any(p in profiles for p in ['abiquo-v2v','abiquo-server','abiquo-remote-services','abiquo-public-services']):
+        if any(p in profiles for p in ['abiquo-v2v','abiquo-server','abiquo-remote-services','abiquo-public-cloud']):
             while not DONE:
                 self.win = DCWindow(screen)
                 rc = self.win.run()
@@ -421,8 +423,9 @@ class mainWindow:
                     DONE = 1
         DONE = 0
 
-        # Server IP for AM check
-        if ('abiquo-distributed' in profiles) and ('abiquo-remote-services' in profiles):
+        # Server IP for Remote Services 
+        if any(p in profiles for p in ['abiquo-remote-services','abiquo-v2v']) \
+            and 'abiquo-distributed' in profiles:
             while not DONE:
                 self.win = ServerWindow(screen)
                 rc = self.win.run()
@@ -435,9 +438,9 @@ class mainWindow:
         DONE = 0
 
         # API endpoint and SSL
-        if any(p in profiles for p in ['abiquo-ui-standalone','abiquo-monolithic','abiquo-server']):
+        if any(p in profiles for p in ['abiquo-ui','abiquo-monolithic','abiquo-server']):
             while not DONE:
-                self.win = ApiWindow(screen)
+                self.win = ApiWindow(screen,profiles)
                 rc = self.win.run()
                 if rc == -1:
                     screen.popWindow()
