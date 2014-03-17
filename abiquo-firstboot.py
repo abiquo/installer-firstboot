@@ -339,6 +339,7 @@ class mainWindow:
         logging.basicConfig(filename='/var/log/abiquo-firstboot.log',level=logging.DEBUG,format='%(asctime)s - %(levelname)s: %(message)s')
         # profiles from /etc/abiquo-installer
         profiles = ""
+        screen = SnackScreen()
         if os.path.exists("/etc/abiquo-installer"):
             try:
                 profiles = eval(open("/etc/abiquo-installer", "r").readline().split(": ")[1])
@@ -424,7 +425,7 @@ class mainWindow:
         DONE = 0
 
         # Server IP for Remote Services 
-        if any(p in profiles for p in ['abiquo-remote-services','abiquo-v2v']) \
+        if any(p in profiles for p in ['abiquo-remote-services','abiquo-v2v', 'abiquo-public-cloud']) \
             and 'abiquo-distributed' in profiles:
             while not DONE:
                 self.win = ServerWindow(screen)
