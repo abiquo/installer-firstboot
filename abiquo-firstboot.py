@@ -412,7 +412,7 @@ class mainWindow:
         DONE = 0
 
         # Datacenter ID (Server, V2V, Public Cloud, )
-        if any(p in profiles for p in ['abiquo-v2v','abiquo-server','abiquo-remote-services','abiquo-public-cloud']):
+        if any(p in profiles for p in ['abiquo-monolithic', 'abiquo-v2v', 'abiquo-remote-services', 'abiquo-public-cloud']):
             while not DONE:
                 self.win = DCWindow(screen)
                 rc = self.win.run()
