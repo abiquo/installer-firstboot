@@ -146,8 +146,11 @@ class ApiWindow:
             self.screen.popWindow()
             ButtonChoiceWindow(self.screen,"URL incorrect","Please enter a URL with the form:\n http://<endpoint-ip>/api",buttons = ["OK"], width = 50)
         else:
+            self.ip = re.search('://(.+?)/', self.entry.value()).group(1)
+            logging.error(self.ip)
             self.defaulturl = self.entry.value()
             self.set_api_url(self.entry.value())
+            self.set_server_ip()
             return 0
 
     def set_api_url(self,url):
@@ -176,6 +179,18 @@ class ApiWindow:
             except socket.error:
                 pass
         return False
+
+    def set_server_ip(self):
+        config = ConfigParser.ConfigParser()
+        config.optionxform = str
+        conf_path = '/opt/abiquo/config/abiquo.properties'
+        if os.path.exists(conf_path):
+            try:
+                config.readfp(open(conf_path))
+                config.set('remote-services', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
+                config.write(open(conf_path,'wa'))
+            except Exception as e:
+                logging.error('Cannot set API endpoint: %s' % e)
 
 class DCWindow:
     def __init__(self,screen):
