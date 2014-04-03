@@ -147,7 +147,6 @@ class ApiWindow:
             ButtonChoiceWindow(self.screen,"URL incorrect","Please enter a URL with the form:\n http://<endpoint-ip>/api",buttons = ["OK"], width = 50)
         else:
             self.ip = re.search('://(.+?)/', self.entry.value()).group(1)
-            logging.error(self.ip)
             self.defaulturl = self.entry.value()
             self.set_api_url(self.entry.value())
             self.set_server_ip()
