@@ -77,6 +77,7 @@ class NfsWindow:
                     if self.repository_path in line:
                         return False
                 f.write(url+'  '+self.repository_path+' nfs    defaults        0 0\n')
+                f.close()
         if os.path.exists(self.conf_path):
             try:
                 config.readfp(open(self.conf_path))
@@ -344,9 +345,11 @@ class HTTPSWindow:
             try:
                 with open(self.ui_conf_path, "rt") as conf:
                     lines = conf.readlines()
+                conf.close()
                 with open(self.ui_conf_path, "wb") as out:
                     for line in lines:
                         out.write(re.sub(r'http:','https:',line))
+                out.close()
             except Exception:
                 logging.warning("Failed setting https in "+self.ui_conf_path+" :\n"+str(err))
         else:
