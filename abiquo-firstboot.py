@@ -82,6 +82,7 @@ class NfsWindow:
                 config.readfp(open(self.conf_path))
                 config.set('remote-services', 'abiquo.appliancemanager.repositoryLocation', url)
                 config.write(open(self.conf_path,'wa'))
+                config.close()
             except Exception:
                 logging.error('Cannot set repository path.')
 
@@ -187,7 +188,9 @@ class ApiWindow:
             try:
                 config.readfp(open(conf_path))
                 config.set('remote-services', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
+                config.set('server', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
                 config.write(open(conf_path,'wa'))
+                config.close()
             except Exception as e:
                 logging.error('Cannot set API endpoint: %s' % e)
 
@@ -227,6 +230,7 @@ class DCWindow:
                 config.readfp(open(conf_path))
                 config.set('remote-services', 'abiquo.datacenter.id', dcid)
                 config.write(open(conf_path,'wa'))
+                config.close()
             except Exception:
                 logging.error('Cannot set datacenter id')
 
@@ -271,6 +275,7 @@ class ServerWindow:
                 config.set('remote-services', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
                 config.set('remote-services', 'abiquo.rabbitmq.host', self.ip)
                 config.write(open(conf_path,'wa'))
+                config.close()
             except Exception:
                 logging.error('Cannot set Server ip')
 
