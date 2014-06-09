@@ -447,7 +447,7 @@ class mainWindow:
         DONE = 0
 
         # Server IP for Remote Services 
-        if any(p in profiles for p in ['abiquo-remote-services','abiquo-v2v', 'abiquo-public-cloud']) \
+        if any(p in profiles for p in ['abiquo-distributed', 'abiquo-remote-services', 'abiquo-v2v', 'abiquo-public-cloud']) \
             and 'abiquo-distributed' in profiles:
             while not DONE:
                 self.win = ServerWindow(screen)
