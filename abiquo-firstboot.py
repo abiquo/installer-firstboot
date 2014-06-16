@@ -188,8 +188,10 @@ class ApiWindow:
         if os.path.exists(conf_path):
             try:
                 config.readfp(open(conf_path))
-                config.set('remote-services', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
-                config.set('server', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
+                if config.has_section('remote-services'):
+                    config.set('remote-services', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
+                if config.has_section('server'):
+                    config.set('server', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
                 config.write(open(conf_path,'wa'))
                 config.close()
             except Exception as e:
@@ -448,7 +450,7 @@ class mainWindow:
 
         # Server IP for Remote Services 
         if any(p in profiles for p in ['abiquo-distributed', 'abiquo-remote-services', 'abiquo-v2v', 'abiquo-public-cloud']) \
-            and 'abiquo-distributed' in profiles:
+            and not any(p in profiles for p in ['abiquo-server', 'abiquo-standalone-api', 'abiquo-ui']):
             while not DONE:
                 self.win = ServerWindow(screen)
                 rc = self.win.run()
