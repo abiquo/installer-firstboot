@@ -26,6 +26,36 @@ def detect_public_ip():
     except socket.error:
         return False
 
+class JceWindow:
+    def __init__(self,screen):
+        self.screen = screen
+        self.text = TextboxReflowed(75,"The installation process is about to download the JCE library. The license can be read here:\n\nhttp://www.oracle.com/technetwork/java/javase/terms/license/index.html\n\nIf you don't want to accept the license, press ESC to cancel the download -  but your Abiquo installation will NOT work without it!\n")
+        self.grid = GridForm(self.screen, "JCE download", 1, 2)
+        self.bb = ButtonBar(self.screen, ["Accept"],compact=1)
+        self.grid.add(self.text,0,0,(0, 0, 0, 1))
+        self.grid.add(self.bb,0,1,growx = 1)
+
+    def run(self):
+        result = self.grid.run()
+        rc = self.bb.buttonPressed(result)
+        if not rc:
+            return 0
+        else:
+            download_error = self.download_jce()
+            if download_error:
+                self.screen.popWindow()
+                ButtonChoiceWindow(self.screen,"Error downloading JCE","Unable to download the JCE library. Please follow these steps in another terminal to do it manually:\n\nwget --no-check-certificate --no-cookies \ \n--header \"Cookie: oraclelicense=accept-securebackup-cookie\" -O /tmp/JCE.zip \ \nhttp://download.oracle.com/otn-pub/java/jce/7/UnlimitedJCEPolicyJDK7.zip\n\nunzip -u -j /tmp/JCE.zip -d /usr/java/default/lib/security\n", buttons = ["OK"], width = 70)
+            return 0
+
+    def download_jce(self):
+        try:
+            p = subprocess.call("wget --no-check-certificate --no-cookies --header \"Cookie: oraclelicense=accept-securebackup-cookie\" -O /tmp/JCE.zip http://download.oracle.com/otn-pub/java/jce/7/UnlimitedJCEPolicyJDK7.zip", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
+            p = subprocess.call("unzip -u -j /tmp/JCE.zip -d /usr/java/default/lib/security", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
+            return 0
+        except Exception:
+            logging.error("Error downloading the JCE")
+            return 1
+
 class NfsWindow:
     def __init__(self,screen):
         self.conf_path = "/opt/abiquo/config/abiquo.properties"
@@ -419,6 +449,20 @@ class mainWindow:
         if os.path.exists("/etc/system-release"):
             release = open("/etc/system-release", "r").readline()
             screen.drawRootText(0, 0, release)
+
+        #TODO check that the library is not already installed
+        # JCE
+        DONE = 0
+        #if os.path.exists("/usr/java/default/"):
+        if os.path.exists("/tmp/java"):
+            while not DONE:
+                self.win = JceWindow(screen)
+                rc = self.win.run()
+                screen.popWindow()
+                if rc == -1:
+                    DONE = 1
+                elif rc == 0:
+                    DONE = 1
 
         # NFS Repository window
         DONE = 0
