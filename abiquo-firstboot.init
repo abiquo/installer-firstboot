@@ -17,7 +17,7 @@ case "$1" in
         /bin/plymouth quit
     fi
     # Run abiquo-firstboot tool
-    if [ -x /usr/bin/abiquo-firstboot ]; then
+    if [ -x /usr/sbin/abiquo-firstboot ]; then
     /usr/sbin/abiquo-firstboot
     fi
     # Disables itself

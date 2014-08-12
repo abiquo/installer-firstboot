@@ -453,8 +453,7 @@ class mainWindow:
         #TODO check that the library is not already installed
         # JCE
         DONE = 0
-        #if os.path.exists("/usr/java/default/"):
-        if os.path.exists("/tmp/java"):
+        if os.path.exists("/usr/java/default/"):
             while not DONE:
                 self.win = JceWindow(screen)
                 rc = self.win.run()
