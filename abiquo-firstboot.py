@@ -12,6 +12,7 @@ import codecs
 import shutil
 import logging
 import re
+import hashlib
 
 def signal_handler(signal, frame):
     logging.info('You pressed Ctrl+C!')
@@ -55,7 +56,9 @@ class JceWindow:
             p = subprocess.call("wget --no-check-certificate --no-cookies --header \"Cookie: oraclelicense=accept-securebackup-cookie\" -O /tmp/JCE.zip http://download.oracle.com/otn-pub/java/jce/7/UnlimitedJCEPolicyJDK7.zip", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
             p = subprocess.call("sleep 3", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
             p = subprocess.call("unzip -o -j /tmp/JCE.zip -d /usr/java/default/jre/lib/security/", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
-            return 0
+
+            #verifying  JCE zip is properly downloaded
+            return  hashlib.md5(open('/tmp/JCE.zip').read()).hexdigest() != 'c47e997b90ddfd0d813a37ccc97fb933'
         except Exception:
             logging.error("Error downloading the JCE")
             return 1
