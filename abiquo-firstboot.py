@@ -63,6 +63,50 @@ class JceWindow:
             logging.error("Error downloading the JCE")
             return 1
 
+class MUserWindow:
+    def __init__(self,screen):
+        self.screen = screen
+        self.conf_path = '/opt/abiquo/config/abiquo.properties'
+        self.text = TextboxReflowed(75,"This step will extract M user credentials from database and configure it as a property")
+        self.grid = GridForm(self.screen, "M User configuration", 1, 2)
+        self.bb = ButtonBar(self.screen, ["Accept","Cancel"],compact=1)
+        self.grid.add(self.text,0,0,(0, 0, 0, 1))
+        self.grid.add(self.bb,0,1,growx = 1)
+
+    def run(self):
+        result = self.grid.run()
+        rc = self.bb.buttonPressed(result)
+        if rc == 'cancel':
+            return -1
+        else:
+            self.screen.popWindow()
+            self.configure_m_credentials()
+            return 0
+
+
+    def configure_m_credentials(self):
+        try:
+            m_password = commands.getoutput("mysql kinton -e 'select COMMENTS from DATABASECHANGELOG where ID = \"default_user_for_m\";' --skip-column-names")
+            logging.info("Default M user password %s"% m_password)
+        except Exception as e:
+            logging.error("Error getting credentials from database")
+
+        config = ConfigParser.ConfigParser()
+        config.optionxform = str
+        if os.path.exists(self.conf_path):
+            try:
+                config.readfp(open(self.conf_path))
+                config.set('server','abiquo.m.credential', m_password)
+                config.set('server','abiquo.m.identity','default_outbound_api_user')
+                config.write(open(self.conf_path,'wa'))
+                logging.info("M credentials set as {0} / {1}".format('default_outbound_api_user',m_password))
+            except Exception as e:
+                logging.error("Cannot set M credentials to properties file. Error: {0}".format(e) )
+        else:
+            logging.error("Abiquo properties file not found!")
+
+
+
 class NfsWindow:
     def __init__(self,screen):
         self.conf_path = "/opt/abiquo/config/abiquo.properties"
@@ -155,7 +199,7 @@ class NfsWindow:
 
 class ApiWindow:
     def __init__(self,screen,profiles):
-        self.conf_path = '/var/www/html/ui/config/client-config.json'
+        self.conf_path = '/var/www/html/ui/config/client-config-custom.json'
         ip = detect_public_ip()
         if ip and not 'abiquo-ui' in profiles:
             self.defaulturl = 'http://'+ip+'/api'
@@ -343,7 +387,7 @@ class HTTPSWindow:
         self.abiquo_generate_certs = '/usr/share/doc/abiquo-ui/create_certs.sh'
         self.tomcat_server_conf = '/opt/abiquo/tomcat/conf/server.xml'
         self.tomcat_server_ssl_conf_example = '/usr/share/doc/abiquo-core/examples/tomcat/server_ssl.xml'
-        self.ui_conf_path = '/var/www/html/ui/config/client-config.json'
+        self.ui_conf_path = '/var/www/html/ui/config/client-config-custom.json'
 
     def run(self):
         result = self.grid.run()
@@ -533,7 +577,17 @@ class mainWindow:
                 elif rc == 0:
                     screen.popWindow()
                     DONE = 1
-        DONE = 0
+            DONE = 0
+            while not DONE:
+                self.win = MUserWindow(screen)
+                rc = self.win.run()
+                if rc == -1:
+                    screen.popWindow()
+                    DONE = 1
+                elif rc == 0:
+                    screen.popWindow()
+                    DONE = 1
+            DONE = 0
 
         screen.popWindow()
         screen.finish()
