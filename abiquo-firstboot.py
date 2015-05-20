@@ -438,6 +438,76 @@ class HTTPSWindow:
         else:
             logging.warning("UI config not found")
 
+class DHCPRelayWindow:
+    def __init__(self,screen):
+        self.all_nics = commands.getoutput('ifconfig | egrep -v "^ |^$|\.|lo" | awk \'{print $1}\'').split('\n')
+        self.screen = screen
+        self.grid = GridForm(self.screen, "DHCP Relay Configuration", 3, 8)
+        self.text_mgmt_nic = TextboxReflowed(25,"Management interface:".ljust(25))
+        self.list_mgmt_nic = Listbox(height=3, width=20, scroll=1)
+        self.text_svc_nic = TextboxReflowed(25,"Service interface:".ljust(25))
+        self.list_svc_nic = Listbox(height=3, width=20, scroll=1)
+        for idx, val in enumerate(self.all_nics):
+            self.list_mgmt_nic.append(val, idx)
+            self.list_svc_nic.append(val, idx)
+        self.text_dhcp_server = TextboxReflowed(25,"DHCP Server IP:".ljust(25))
+        self.entry_dhcp_server = Entry(width=20)
+        self.text_svc_net = TextboxReflowed(25,"Service network:".ljust(25))
+        self.entry_svc_net = Entry(width=20)
+        self.text_vlan_range = TextboxReflowed(25,"VLAN range:".ljust(25))
+        self.text_vlan_from = TextboxReflowed(25,"from:".rjust(25))
+        self.text_vlan_to = TextboxReflowed(25,"to:".rjust(25))
+        self.entry_vlan_from = Entry(width=5)
+        self.entry_vlan_to = Entry(width=5)
+        self.accept_btn = Button("Accept")
+        self.cancel_btn = Button("Cancel")
+        
+        self.grid.add(self.text_mgmt_nic,0,0,(1,0,0,0))
+        self.grid.add(self.list_mgmt_nic,1,0,(0,0,1,0),anchorLeft=1)
+        self.grid.add(self.text_svc_nic,0,1,(1,0,0,0))
+        self.grid.add(self.list_svc_nic,1,1,(0,0,1,0),anchorLeft=1)
+        self.grid.add(self.text_dhcp_server,0,2,(1,0,0,0))
+        self.grid.add(self.entry_dhcp_server,1,2,(0,0,1,0),anchorLeft=1)
+        self.grid.add(self.text_svc_net,0,3,(1,0,0,0))
+        self.grid.add(self.entry_svc_net,1,3,(0,0,1,0),anchorLeft=1)
+        self.grid.add(self.text_vlan_range,0,4,(1,0,0,0))
+        self.grid.add(self.text_vlan_from,0,5,(1,0,0,0))
+        self.grid.add(self.entry_vlan_from,1,5,(0,0,1,0),anchorLeft=1)
+        self.grid.add(self.text_vlan_to,0,6,(1,0,0,0))
+        self.grid.add(self.entry_vlan_to,1,6,(0,0,1,1),anchorLeft=1)
+        self.grid.add(self.accept_btn,0,7)
+        self.grid.add(self.cancel_btn,1,7)
+
+    def run(self):
+        result = self.grid.run()
+        if result == self.cancel_btn:
+            logging.info("Cancel")
+            return 0
+        else:
+            logging.info("Accept")
+            for idx, val in enumerate(self.all_nics):
+                if idx == self.list_svc_nic.current():
+                    mgmt_nic = val
+                    svc_nic = val
+
+                    retcode, output = commands.getstatusoutput(
+                        "cd /tmp && /usr/bin/abiquo-dhcp-relay -r %s -s %s -v %s-%s -x %s -n %s && mv /tmp/relay-config /etc/init.d/relay-config" %
+                        (mgmt_nic, svc_nic, self.entry_vlan_from.value(), self.entry_vlan_to.value(), self.entry_dhcp_server.value(),
+                            self.entry_svc_net.value()))
+                    if retcode == 0:
+                        logging.info("Successfully reconfigured DHCP relay.")
+                        logging.info("Restarting service.")
+                        retcode = commands.getstatus("/etc/init.d/relay-config restart")
+
+                        if retcode == 0:
+                            logging.info("Done.")
+                        else:
+                            logging.error("Something went wrong restarting service. Check system logs.")
+                    else:
+                        logging.error("Error configuring DHCP relay.")
+                        logging.error(output)
+                        return 1
+            return 0
 
 class mainWindow:
     def __init__(self):
@@ -577,7 +647,10 @@ class mainWindow:
                 elif rc == 0:
                     screen.popWindow()
                     DONE = 1
-            DONE = 0
+        DONE = 0
+
+        # M user window
+        if any(p in profiles for p in ['abiquo-ui','abiquo-monolithic','abiquo-server']):
             while not DONE:
                 self.win = MUserWindow(screen)
                 rc = self.win.run()
@@ -588,6 +661,19 @@ class mainWindow:
                     screen.popWindow()
                     DONE = 1
             DONE = 0
+            
+        # DHCP RELAY
+        if any(p in profiles for p in ['abiquo-dhcp-relay']):
+            while not DONE:
+                self.win = DHCPRelayWindow(screen)
+                rc = self.win.run()
+                if rc == -1:
+                    screen.popWindow()
+                    DONE = 1
+                elif rc == 0:
+                    screen.popWindow()
+                    DONE = 1
+        DONE = 0
 
         screen.popWindow()
         screen.finish()
@@ -597,5 +683,9 @@ if __name__ == "__main__":
     try:
         signal.signal(signal.SIGINT, signal_handler)   
         ret = mainWindow()
+
+        plymouth_mode = commands.getoutput("/usr/sbin/plymouth-set-default-theme")
+        if plymouth_mode == "details":
+            commands.getstatus("/usr/sbin/plymouth-set-default-theme text --rebuild-initrd")
     except KeyboardInterrupt:
         sys.exit()
