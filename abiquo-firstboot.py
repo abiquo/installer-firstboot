@@ -683,9 +683,5 @@ if __name__ == "__main__":
     try:
         signal.signal(signal.SIGINT, signal_handler)   
         ret = mainWindow()
-
-        plymouth_mode = commands.getoutput("/usr/sbin/plymouth-set-default-theme")
-        if plymouth_mode == "details":
-            commands.getstatus("/usr/sbin/plymouth-set-default-theme text --rebuild-initrd")
     except KeyboardInterrupt:
         sys.exit()
