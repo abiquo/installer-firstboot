@@ -13,6 +13,7 @@ import shutil
 import logging
 import re
 import hashlib
+from rfc3987 import parse
 
 def signal_handler(signal, frame):
     logging.info('You pressed Ctrl+C!')
@@ -248,19 +249,14 @@ class ApiWindow:
                 return False
 
     def check_api_url(self, url):
-        if "http://" in url:
-            try:
-                s = socket.inet_aton(url.split("http://")[1].split("/")[0])
+        try:
+            p = parse(url, rule='IRI')
+            if p != None:
                 return True
-            except socket.error:
-                pass
-        elif "https://" in url:
-            try:
-                s = socket.inet_aton(url.split("https://")[1].split("/")[0])
-                return True
-            except socket.error:
-                pass
-        return False
+            else:
+                return False
+        except ValueError:    
+            return False
 
     def set_server_ip(self):
         config = ConfigParser.ConfigParser()
@@ -268,11 +264,12 @@ class ApiWindow:
         conf_path = '/opt/abiquo/config/abiquo.properties'
         if os.path.exists(conf_path):
             try:
+                ip = detect_public_ip()
                 config.readfp(open(conf_path))
                 if config.has_section('remote-services'):
-                    config.set('remote-services', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
+                    config.set('remote-services', 'abiquo.server.api.location', 'http://'+ip+':8009/api')
                 if config.has_section('server'):
-                    config.set('server', 'abiquo.server.api.location', 'http://'+self.ip+':8009/api')
+                    config.set('server', 'abiquo.server.api.location', 'http://'+ip+':8009/api')
                 config.write(open(conf_path,'wa'))
                 config.close()
             except Exception as e:
