@@ -597,7 +597,7 @@ class mainWindow:
         DONE = 0
 
         # Datacenter ID (Server, V2V, Public Cloud, )
-        if any(p in profiles for p in ['abiquo-monolithic', 'abiquo-v2v', 'abiquo-remote-services', 'abiquo-public-cloud']):
+        if any(p in profiles for p in ['abiquo-monolithic', 'abiquo-monolithic-azure', 'abiquo-v2v', 'abiquo-remote-services', 'abiquo-remote-services-azure', 'abiquo-public-cloud']):
             while not DONE:
                 self.win = DCWindow(screen)
                 rc = self.win.run()
@@ -610,8 +610,8 @@ class mainWindow:
         DONE = 0
 
         # Server IP for Remote Services 
-        if any(p in profiles for p in ['abiquo-distributed', 'abiquo-remote-services', 'abiquo-v2v', 'abiquo-public-cloud']) \
-            and not any(p in profiles for p in ['abiquo-server', 'abiquo-standalone-api', 'abiquo-ui']):
+        if any(p in profiles for p in ['abiquo-distributed', 'abiquo-remote-services', 'abiquo-remote-services-azure', 'abiquo-v2v', 'abiquo-public-cloud']) \
+            and not any(p in profiles for p in ['abiquo-server', 'abiquo-server-azure', 'abiquo-standalone-api', 'abiquo-ui']):
             while not DONE:
                 self.win = ServerWindow(screen)
                 rc = self.win.run()
@@ -624,7 +624,7 @@ class mainWindow:
         DONE = 0
 
         # API endpoint and SSL
-        if any(p in profiles for p in ['abiquo-ui','abiquo-monolithic','abiquo-server']):
+        if any(p in profiles for p in ['abiquo-ui','abiquo-monolithic','abiquo-monolithic-azure','abiquo-server','abiquo-server-azure']):
             while not DONE:
                 self.win = ApiWindow(screen,profiles)
                 rc = self.win.run()
@@ -647,7 +647,7 @@ class mainWindow:
         DONE = 0
 
         # M user window
-        if any(p in profiles for p in ['abiquo-ui','abiquo-monolithic','abiquo-server']):
+        if any(p in profiles for p in ['abiquo-ui','abiquo-monolithic','abiquo-server','abiquo-monolithic-azure','abiquo-server-azure']):
             while not DONE:
                 self.win = MUserWindow(screen)
                 rc = self.win.run()
