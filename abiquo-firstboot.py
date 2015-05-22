@@ -506,6 +506,36 @@ class DHCPRelayWindow:
                         return 1
             return 0
 
+class SummaryWindow:
+    def __init__(self,screen,ui_capable,azure=False):
+        text = "Configuration saved.\n\nPlase restart Abiquo tomcat and Apache services to apply configuration:\n\n$ sudo service httpd restart\n$ sudo service abiquo-omcat restart"
+        if ui_capable:
+            with open("/var/www/html/ui/config/client-config-custom.json") as data_file:
+                data = json.load(data_file)
+            uri = data['config.endpoint'].replace('api','ui')
+            if azure:
+                self.text = TextboxReflowed(50, text + "You may login now on %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\n" % uri)
+            else:
+                self.text = TextboxReflowed(50,"You may login now on %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\nAppliance credentials:\n  User: root\n  Password: temporal" % uri)
+        else:
+            if azure:
+                self.text = TextboxReflowed(50, text)
+            else:
+                self.text = TextboxReflowed(50,"You may login into this appliance with credentials:\n\n  User: root\n  Password: temporal")
+        self.screen = screen
+        self.topgrid = GridForm(self.screen, "Configuration Finished!!", 1, 3)
+        self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
+        self.bb = ButtonBar (self.screen, ["OK"],compact=1)
+        self.topgrid.add (self.bb, 0, 2, growx = 1)
+
+    def run(self):
+        result = self.topgrid.run()
+        rc = self.bb.buttonPressed(result)
+        if rc == "OK":
+            return 0 
+        else:
+            return -1
+
 class mainWindow:
     def __init__(self):
         logging.basicConfig(filename='/var/log/abiquo-firstboot.log',level=logging.DEBUG,format='%(asctime)s - %(levelname)s: %(message)s')
@@ -671,6 +701,21 @@ class mainWindow:
                     screen.popWindow()
                     DONE = 1
         DONE = 0
+
+        # Show connection INFO
+        while not DONE:
+            if any(p in profiles for p in ['abiquo-monolithic-azure','abiquo-server-azure']):
+                self.win = SummaryWindow(screen, True, True)
+            elif any(p in profiles for p in ['abiquo-ui','abiquo-monolithic']):
+                self.win = SummaryWindow(screen, True)
+            else:
+                self.win = SummaryWindow(screen, False)
+            rc = self.win.run()
+            if rc == -1 or rc == 0:
+                screen.popWindow()
+                DONE = 1
+        DONE = 0
+
 
         screen.popWindow()
         screen.finish()
