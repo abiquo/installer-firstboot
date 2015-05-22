@@ -508,7 +508,7 @@ class DHCPRelayWindow:
 
 class SummaryWindow:
     def __init__(self,screen,ui_capable,azure=False):
-        text = "Configuration saved.\n\nPlase restart Abiquo tomcat and Apache services to apply configuration:\n\n$ sudo service httpd restart\n$ sudo service abiquo-tomcat restart\n\n"
+        text = "Configuration saved.\n\nPlease restart Abiquo tomcat and Apache services to apply configuration:\n\n$ sudo service httpd restart\n$ sudo service abiquo-tomcat restart\n\n"
         if ui_capable:
             with open("/var/www/html/ui/config/client-config-custom.json") as data_file:
                 data = json.load(data_file)
