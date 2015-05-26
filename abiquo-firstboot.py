@@ -377,6 +377,7 @@ class HTTPSWindow:
         self.grid.add(self.text,0,0,(0, 0, 0, 1))
         self.grid.add(self.bb,0,1,growx = 1)       
         self.abiquo_conf = '/etc/httpd/conf.d/abiquo.conf'
+        self.abiquo_conf_example = '/usr/share/doc/abiquo-ui/abiquo.conf'
         self.ssl_conf = '/etc/httpd/conf.d/ssl.conf'
         self.ssl_conf_example = '/usr/share/doc/abiquo-ui/ssl.conf'
         self.abiquo_ssl_conf = '/etc/httpd/conf.d/abiquo_ssl.conf'
@@ -390,11 +391,18 @@ class HTTPSWindow:
         result = self.grid.run()
         rc = self.bb.buttonPressed(result)
         if rc == "no":
+            self.set_http()
             return 0
         else:
             # Generate certs and set HTTPS in apache
             self.set_https()
             return 0
+
+    def set_http(self):
+        if os.path.exists(self.abiquo_conf_example):
+            shutil.move(self.abiquo_conf_example, self.abiquo_conf)
+        else:
+            logging.warning("abiquo.conf missing")
 
     def set_https(self):
         # save backups and copy configuration from examples.
