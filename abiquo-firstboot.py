@@ -519,14 +519,14 @@ class SummaryWindow:
                 data = json.load(data_file)
             uri = data['config.endpoint'].replace('api','ui')
             if azure:
-                self.text = TextboxReflowed(50, text + "You may login now on %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\n" % uri)
+                self.text = TextboxReflowed(50, text + "You may login now on %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\nPlease, change these passwords after logging in the first time.\n\n" % uri)
             else:
-                self.text = TextboxReflowed(50,"You may login now on %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\nAppliance credentials:\n  User: root\n  Password: temporal" % uri)
+                self.text = TextboxReflowed(50,"You may login now on %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\nAppliance credentials:\n  User: root\n  Password: temporal\n\nPlease, change these passwords after logging in the first time.\n\n" % uri)
         else:
             if azure:
                 self.text = TextboxReflowed(50, text)
             else:
-                self.text = TextboxReflowed(50,"You may login into this appliance with credentials:\n\n  User: root\n  Password: temporal")
+                self.text = TextboxReflowed(50,"You may login into this appliance with credentials:\n\n  User: root\n  Password: temporal\n\nPlease, change these passwords after logging in the first time.\n\n")
         self.screen = screen
         self.topgrid = GridForm(self.screen, "Configuration Finished!!", 1, 3)
         self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
