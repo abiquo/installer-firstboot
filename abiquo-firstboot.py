@@ -119,7 +119,7 @@ class NfsWindow:
         self.label = Label('NFS repository:')
         self.entry = Entry(33,self.defaulturl)
         self.text = TextboxReflowed(50,"Enter your NFS repository URL.\n")
-        self.topgrid = GridForm(self.screen, "NFS Repository", 1, 3)
+        self.topgrid = GridForm(self.screen, "NFS repository", 1, 3)
         self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
         self.grid = Grid(2, 1)
         self.grid.setField (self.label, 0, 0, (0, 0, 1, 0), anchorLeft = 1)
