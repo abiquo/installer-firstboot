@@ -44,7 +44,7 @@ class JceWindow:
             return 0
         else:
             self.screen.popWindow()
-            ButtonChoiceWindow(self.screen,"Downloading JCE", "The download may take a while. Please, wait.\n", buttons = ["Ok"], width = 40)
+            ButtonChoiceWindow(self.screen,"Downloading JCE", "The download may take a while. Please wait.\n", buttons = ["OK"], width = 40)
 
             download_error = self.download_jce()
             if download_error:
@@ -68,8 +68,8 @@ class MUserWindow:
     def __init__(self,screen):
         self.screen = screen
         self.conf_path = '/opt/abiquo/config/abiquo.properties'
-        self.text = TextboxReflowed(75,"This step will extract M user credentials from database and configure it as a property")
-        self.grid = GridForm(self.screen, "M User configuration", 1, 2)
+        self.text = TextboxReflowed(75,"This step will extract M user credentials from database and configure them as properties")
+        self.grid = GridForm(self.screen, "M user configuration", 1, 2)
         self.bb = ButtonBar(self.screen, ["Accept","Cancel"],compact=1)
         self.grid.add(self.text,0,0,(0, 0, 0, 1))
         self.grid.add(self.bb,0,1,growx = 1)
@@ -119,7 +119,7 @@ class NfsWindow:
         self.label = Label('NFS repository:')
         self.entry = Entry(33,self.defaulturl)
         self.text = TextboxReflowed(50,"Enter your NFS repository URL.\n")
-        self.topgrid = GridForm(self.screen, "NFS Repository", 1, 3)
+        self.topgrid = GridForm(self.screen, "NFS repository", 1, 3)
         self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
         self.grid = Grid(2, 1)
         self.grid.setField (self.label, 0, 0, (0, 0, 1, 0), anchorLeft = 1)
@@ -455,7 +455,7 @@ class DHCPRelayWindow:
         for idx, val in enumerate(self.all_nics):
             self.list_mgmt_nic.append(val, idx)
             self.list_svc_nic.append(val, idx)
-        self.text_dhcp_server = TextboxReflowed(25,"DHCP Server IP:".ljust(25))
+        self.text_dhcp_server = TextboxReflowed(25,"DHCP server IP:".ljust(25))
         self.entry_dhcp_server = Entry(width=20)
         self.text_svc_net = TextboxReflowed(25,"Service network:".ljust(25))
         self.entry_svc_net = Entry(width=20)
@@ -527,16 +527,16 @@ class SummaryWindow:
                 data = json.load(data_file)
             uri = data['config.endpoint'].replace('api','ui')
             if azure:
-                self.text = TextboxReflowed(50, text + "You may login now on %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\nPlease, change these passwords after logging in the first time.\n\n" % uri)
+                self.text = TextboxReflowed(50, text + "You may now log into %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\nPlease change these passwords after logging in for the first time.\n\n" % uri)
             else:
-                self.text = TextboxReflowed(50,"You may login now on %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\nAppliance credentials:\n  User: root\n  Password: temporal\n\nPlease, change these passwords after logging in the first time.\n\n" % uri)
+                self.text = TextboxReflowed(50,"You may now log into %s \n\nUI credentials\n  User: admin\n  Password: xabiquo\n\nAppliance credentials:\n  User: root\n  Password: temporal\n\nPlease change these passwords after logging in for the first time.\n\n" % uri)
         else:
             if azure:
                 self.text = TextboxReflowed(50, text)
             else:
-                self.text = TextboxReflowed(50,"You may login into this appliance with credentials:\n\n  User: root\n  Password: temporal\n\nPlease, change these passwords after logging in the first time.\n\n")
+                self.text = TextboxReflowed(50,"You may now log into this appliance with credentials:\n\n  User: root\n  Password: temporal\n\nPlease change these passwords after logging in for the first time.\n\n")
         self.screen = screen
-        self.topgrid = GridForm(self.screen, "Configuration Finished!!", 1, 3)
+        self.topgrid = GridForm(self.screen, "Configuration Finished!", 1, 3)
         self.topgrid.add(self.text,0,0,(0, 0, 0, 1))
         self.bb = ButtonBar (self.screen, ["OK"],compact=1)
         self.topgrid.add (self.bb, 0, 2, growx = 1)
