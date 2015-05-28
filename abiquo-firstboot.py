@@ -455,7 +455,7 @@ class DHCPRelayWindow:
         for idx, val in enumerate(self.all_nics):
             self.list_mgmt_nic.append(val, idx)
             self.list_svc_nic.append(val, idx)
-        self.text_dhcp_server = TextboxReflowed(25,"DHCP Server IP:".ljust(25))
+        self.text_dhcp_server = TextboxReflowed(25,"DHCP server IP:".ljust(25))
         self.entry_dhcp_server = Entry(width=20)
         self.text_svc_net = TextboxReflowed(25,"Service network:".ljust(25))
         self.entry_svc_net = Entry(width=20)
