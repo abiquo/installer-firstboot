@@ -44,7 +44,7 @@ class JceWindow:
             return 0
         else:
             self.screen.popWindow()
-            ButtonChoiceWindow(self.screen,"Downloading JCE", "The download may take a while. Please, wait.\n", buttons = ["Ok"], width = 40)
+            ButtonChoiceWindow(self.screen,"Downloading JCE", "The download may take a while. Please wait.\n", buttons = ["OK"], width = 40)
 
             download_error = self.download_jce()
             if download_error:
