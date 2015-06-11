@@ -59,7 +59,7 @@ class JceWindow:
             p = subprocess.call("unzip -o -j /tmp/JCE.zip -d /usr/java/default/jre/lib/security/", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
 
             #verifying  JCE zip is properly downloaded
-            return  hashlib.md5(open('/tmp/JCE.zip').read()).hexdigest() != 'c47e997b90ddfd0d813a37ccc97fb933'
+            return  hashlib.md5(open('/tmp/JCE.zip').read()).hexdigest() != 'b3c7031bc65c28c2340302065e7d00d3'
         except Exception:
             logging.error("Error downloading the JCE")
             return 1
@@ -404,6 +404,12 @@ class HTTPSWindow:
         else:
             logging.warning("abiquo.conf missing")
 
+        try:
+            upd_lic_url = commands.getoutput("mysql kinton -e \"update system_properties set value = 'http://www.abiquo.com/license' where name = 'client.dashboard.licenseUrl'\"")
+            logging.info("Updated license request url to use http")
+        except Exception as e:
+            logging.error("Error updating license request url.")
+
     def set_https(self):
         # save backups and copy configuration from examples.
         if os.path.exists(self.abiquo_conf):
@@ -442,6 +448,12 @@ class HTTPSWindow:
                 logging.warning("Failed setting https in "+self.ui_conf_path+" :\n"+str(err))
         else:
             logging.warning("UI config not found")
+
+        try:
+            upd_lic_url = commands.getoutput("mysql kinton -e \"update system_properties set value = 'https://www.abiquo.com/license' where name = 'client.dashboard.licenseUrl'\"")
+            logging.info("Updated license request url to use https")
+        except Exception as e:
+            logging.error("Error updating license request url. Will not be able to request due to mixed content.")
 
 class DHCPRelayWindow:
     def __init__(self,screen):
