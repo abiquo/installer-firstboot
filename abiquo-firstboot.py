@@ -49,12 +49,12 @@ class JceWindow:
             download_error = self.download_jce()
             if download_error:
                 self.screen.popWindow()
-                ButtonChoiceWindow(self.screen,"Error downloading JCE","Unable to download the JCE library. Please follow these steps in another terminal to do it manually:\n\nwget --no-check-certificate --no-cookies \ \n--header \"Cookie: oraclelicense=accept-securebackup-cookie\" -O /tmp/JCE.zip \ \nhttp://download.oracle.com/otn-pub/java/jce/7/UnlimitedJCEPolicyJDK7.zip\n\nunzip -o -j /tmp/JCE.zip -d /usr/java/default/jre/lib/security/\n", buttons = ["OK"], width = 70)
+                ButtonChoiceWindow(self.screen,"Error downloading JCE","Unable to download the JCE library. Please follow these steps in another terminal to do it manually:\n\nwget --no-check-certificate --no-cookies \ \n--header \"Cookie: oraclelicense=accept-securebackup-cookie\" -O /tmp/JCE.zip \ \nhttp://download.oracle.com/otn-pub/java/jce/8/jce_policy-8.zip\n\nunzip -o -j /tmp/JCE.zip -d /usr/java/default/jre/lib/security/\n", buttons = ["OK"], width = 70)
             return 0
 
     def download_jce(self):
         try:
-            p = subprocess.call("wget --no-check-certificate --no-cookies --header \"Cookie: oraclelicense=accept-securebackup-cookie\" -O /tmp/JCE.zip http://download.oracle.com/otn-pub/java/jce/7/UnlimitedJCEPolicyJDK7.zip", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
+            p = subprocess.call("wget --no-check-certificate --no-cookies --header \"Cookie: oraclelicense=accept-securebackup-cookie\" -O /tmp/JCE.zip http://download.oracle.com/otn-pub/java/jce/8/jce_policy-8.zip", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
             p = subprocess.call("sleep 3", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
             p = subprocess.call("unzip -o -j /tmp/JCE.zip -d /usr/java/default/jre/lib/security/", shell=True, stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT)
 
