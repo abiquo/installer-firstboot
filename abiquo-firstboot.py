@@ -14,6 +14,7 @@ import logging
 import re
 import hashlib
 from rfc3987 import parse
+from augeas import Augeas
 
 def signal_handler(signal, frame):
     logging.info('You pressed Ctrl+C!')
@@ -105,8 +106,6 @@ class MUserWindow:
                 logging.error("Cannot set M credentials to properties file. Error: {0}".format(e) )
         else:
             logging.error("Abiquo properties file not found!")
-
-
 
 class NfsWindow:
     def __init__(self,screen):
@@ -369,7 +368,7 @@ class ServerWindow:
         return False
 
 class HTTPSWindow:
-    def __init__(self,screen):
+    def __init__(self, screen, set_timeouts):
         self.screen = screen
         self.text = TextboxReflowed(50,"Do you want to enable secure SSL front-end?\n")
         self.grid = GridForm(self.screen, "Enable HTTPS", 1, 2)
@@ -386,17 +385,54 @@ class HTTPSWindow:
         self.tomcat_server_conf = '/opt/abiquo/tomcat/conf/server.xml'
         self.tomcat_server_ssl_conf_example = '/usr/share/doc/abiquo-core/examples/tomcat/server_ssl.xml'
         self.ui_conf_path = '/var/www/html/ui/config/client-config-custom.json'
+        self.set_timeouts = set_timeouts
+        self.https = False
+
+    def set_api_timeouts(self, timeout):
+        a = Augeas()
+
+        # Determine the file to change
+        if self.https:
+            config_file = self.abiquo_ssl_conf
+        else:
+            config_file = self.abiquo_conf
+        logging.info("Setting Proxy timeouts in %s" % config_file)
+
+        # Set timeout using Augeas
+        for loc in a.match("/files%s/VirtualHost/*[arg='/api']" % config_file):
+            proxy_timeout = a.match("%s/*[self::directive='ProxyTimeout']" % loc)
+            if len(proxy_timeout) == 1:
+                # Proxy timeout already exists
+                logging.info("ProxyTimeout exists, changing to %s seconds" % timeout)
+            else:
+                logging.info("ProxyTimeout is not set.")
+                logging.info("Matched location %s" % loc)
+
+                directive = "%s/directive[last]" % loc
+                logging.info("Setting : %s" % directive)
+                a.set(directive, "ProxyTimeout")
+                directive = a.match("%s/*[self::directive='ProxyTimeout']" % loc)
+                for proxy_timeout in directive:
+                    val = "%s/arg" % proxy_timeout
+                    logging.info("Setting : %s" % val)
+                    a.set(val, "600")
+
+            a.save()
+            a.close()
 
     def run(self):
         result = self.grid.run()
         rc = self.bb.buttonPressed(result)
         if rc == "no":
+            self.https = False
             self.set_http()
-            return 0
         else:
             # Generate certs and set HTTPS in apache
+            self.https = True
             self.set_https()
-            return 0
+        if self.set_timeouts:
+            self.set_api_timeouts("600")
+        return 0
 
     def set_http(self):
         if os.path.exists(self.abiquo_conf_example):
@@ -615,14 +651,20 @@ class mainWindow:
         # JCE
         DONE = 0
         if os.path.exists("/usr/java/default/jre/lib/"):
-            while not DONE:
-                self.win = JceWindow(screen)
-                rc = self.win.run()
-                screen.popWindow()
-                if rc == -1:
-                    DONE = 1
-                elif rc == 0:
-                    DONE = 1
+            local_policy_sum = hashlib.md5(open('/usr/java/default/jre/lib/security/local_policy.jar').read()).hexdigest()
+            us_export_policy_sum = hashlib.md5(open('/usr/java/default/jre/lib/security/US_export_policy.jar').read()).hexdigest()
+
+            if local_policy_sum != 'dabfcb23d7bf9bf5a201c3f6ea9bfb2c' or us_export_policy_sum != 'ef6e8eae7d1876d7f05d765d2c2e0529':
+                while not DONE:
+                    self.win = JceWindow(screen)
+                    rc = self.win.run()
+                    screen.popWindow()
+                    if rc == -1:
+                        DONE = 1
+                    elif rc == 0:
+                        DONE = 1
+            else:
+                logging.info("Not downloading JCE jars as they are already correct.")
 
         # NFS Repository window
         DONE = 0
@@ -679,7 +721,10 @@ class mainWindow:
                     DONE = 1
             DONE = 0
             while not DONE:
-                self.win = HTTPSWindow(screen)
+                if any(p in profiles for p in ['abiquo-monolithic-azure','abiquo-server-azure']):
+                    self.win = HTTPSWindow(screen, True)
+                else:
+                    self.win = HTTPSWindow(screen, False)
                 rc = self.win.run()
                 if rc == -1:
                     screen.popWindow()
