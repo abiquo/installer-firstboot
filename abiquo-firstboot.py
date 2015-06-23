@@ -389,8 +389,6 @@ class HTTPSWindow:
         self.https = False
 
     def set_api_timeouts(self, timeout):
-        a = Augeas()
-
         # Determine the file to change
         if self.https:
             config_file = self.abiquo_ssl_conf
@@ -399,23 +397,16 @@ class HTTPSWindow:
         logging.info("Setting Proxy timeouts in %s" % config_file)
 
         # Set timeout using Augeas
+        a = Augeas()
         for loc in a.match("/files%s/VirtualHost/*[arg='/api']" % config_file):
-            proxy_timeout = a.match("%s/*[self::directive='ProxyTimeout']" % loc)
-            if len(proxy_timeout) == 1:
+            proxy_pass = a.match("%s/*[self::directive='ProxyPass']" % loc)
+            if len(proxy_pass) == 1:
                 # Proxy timeout already exists
-                logging.info("ProxyTimeout exists, changing to %s seconds" % timeout)
-            else:
-                logging.info("ProxyTimeout is not set.")
-                logging.info("Matched location %s" % loc)
-
-                directive = "%s/directive[last]" % loc
-                logging.info("Setting : %s" % directive)
-                a.set(directive, "ProxyTimeout")
-                directive = a.match("%s/*[self::directive='ProxyTimeout']" % loc)
-                for proxy_timeout in directive:
-                    val = "%s/arg" % proxy_timeout
-                    logging.info("Setting : %s" % val)
-                    a.set(val, "600")
+                logging.info("ProxyPass found")
+                arg1 = a.get("%s/arg" % proxy_pass[0])
+                arg2 = "timeout=%s" % timeout
+                a.set("%s/arg[1]" % proxy_pass[0], arg1)
+                a.set("%s/arg[2]" % proxy_pass[0], arg2)
 
             a.save()
             a.close()
